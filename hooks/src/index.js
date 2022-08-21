@@ -181,11 +181,19 @@ export function useReducer(reducer, initialState, init) {
 
 		hookState._component = currentComponent;
 
-		if (!hookState._component._hasScuFromHooks) {
-			hookState._component.__hooks._hasScuFromHooks = true;
-			const prevScu = hookState._component.shouldComponentUpdate;
-			hookState._component.shouldComponentUpdate = (p, s, c) => {
+		if (!currentComponent._hasScuFromHooks) {
+			currentComponent._hasScuFromHooks = true;
+			const prevScu = currentComponent.shouldComponentUpdate;
+
+			// This SCU has the purpose of bailing out after repeated updates
+			// to stateful hooks.
+			// we store the next value in _nextValue[0] and keep doing that for all
+			// state setters, if we have next states and
+			// all next states within a component end up being equal to their original state
+			// we are safe to bail out for this specific component.
+			currentComponent.shouldComponentUpdate = function(p, s, c) {
 				if (!hookState._component.__hooks) return true;
+
 				const stateHooks = hookState._component.__hooks._list.filter(
 					x => x._component
 				);
@@ -193,30 +201,27 @@ export function useReducer(reducer, initialState, init) {
 				// When we have no updated hooks in the component we invoke the previous SCU or
 				// traverse the VDOM tree further.
 				if (allHooksEmpty) {
-					return prevScu ? prevScu(p, s, c) : true;
+					return prevScu ? prevScu.call(this, p, s, c) : true;
 				}
 
 				// We check whether we have components with a nextValue set that
 				// have values that aren't equal to one another this pushes
 				// us to update further down the tree
-				const shouldSkipUpdating = stateHooks.every(hookItem => {
-					if (!hookItem._nextValue) return true;
-					const currentValue = hookItem._value[0];
-					hookItem._value = hookItem._nextValue;
-					hookItem._nextValue = undefined;
-					return currentValue === hookItem._value[0];
+				let shouldUpdate = false;
+				stateHooks.forEach(hookItem => {
+					if (hookItem._nextValue) {
+						const currentValue = hookItem._value[0];
+						hookItem._value = hookItem._nextValue;
+						hookItem._nextValue = undefined;
+						if (currentValue !== hookItem._value[0]) shouldUpdate = true;
+					}
 				});
 
-				if (!shouldSkipUpdating) {
-					return prevScu ? prevScu(p, s, c) : true;
-				}
-
-				// When all set nextValues are equal to their original value
-				// we bail out of updating.
-				// Thinking: would this be dangerous with a batch of updates where
-				// Comp1 updates --> Comp2 updated in same batch twice but has same eventual state --> this leads to us
-				// not diving into Comp3
-				return false;
+				return shouldUpdate
+					? prevScu
+						? prevScu.call(this, p, s, c)
+						: true
+					: false;
 			};
 		}
 	}
@@ -340,7 +345,7 @@ export function useDebugValue(value, formatter) {
 }
 
 /**
- * @param {(error: any) => void} cb
+ * @param {(error: any, errorInfo: import('preact').ErrorInfo) => void} cb
  */
 export function useErrorBoundary(cb) {
 	/** @type {import('./internal').ErrorBoundaryHookState} */
@@ -348,8 +353,8 @@ export function useErrorBoundary(cb) {
 	const errState = useState();
 	state._value = cb;
 	if (!currentComponent.componentDidCatch) {
-		currentComponent.componentDidCatch = err => {
-			if (state._value) state._value(err);
+		currentComponent.componentDidCatch = (err, errorInfo) => {
+			if (state._value) state._value(err, errorInfo);
 			errState[1](err);
 		};
 	}

@@ -234,6 +234,67 @@ describe('useState', () => {
 		expect(scratch.textContent).to.equal('hi');
 	});
 
+	// https://github.com/preactjs/preact/issues/3669
+	it('correctly updates with multiple state updates', () => {
+		let simulateClick;
+		function TestWidget() {
+			const [saved, setSaved] = useState(false);
+			const [, setSaving] = useState(false);
+
+			simulateClick = () => {
+				setSaving(true);
+				setSaved(true);
+				setSaving(false);
+			};
+
+			return <div>{saved ? 'Saved!' : 'Unsaved!'}</div>;
+		}
+
+		render(<TestWidget />, scratch);
+		expect(scratch.innerHTML).to.equal('<div>Unsaved!</div>');
+
+		act(() => {
+			simulateClick();
+		});
+
+		expect(scratch.innerHTML).to.equal('<div>Saved!</div>');
+	});
+
+	// https://github.com/preactjs/preact/issues/3674
+	it('ensure we iterate over all hooks', () => {
+		let open, close;
+
+		function TestWidget() {
+			const [, setCounter] = useState(0);
+			const [isOpen, setOpen] = useState(false);
+
+			open = () => {
+				setCounter(42);
+				setOpen(true);
+			};
+
+			close = () => {
+				setOpen(false);
+			};
+
+			return <div>{isOpen ? 'open' : 'closed'}</div>;
+		}
+
+		render(<TestWidget />, scratch);
+		expect(scratch.innerHTML).to.equal('<div>closed</div>');
+
+		act(() => {
+			open();
+		});
+
+		expect(scratch.innerHTML).to.equal('<div>open</div>');
+
+		act(() => {
+			close();
+		});
+		expect(scratch.innerHTML).to.equal('<div>closed</div>');
+	});
+
 	it('does not loop when states are equal after batches', () => {
 		const renderSpy = sinon.spy();
 		const Context = createContext(null);

@@ -102,6 +102,23 @@ const UseOfComponentWithChildren = () => {
 	);
 };
 
+// TODO: make this work
+// const DummyChildren: FunctionalComponent = ({ children }) => {
+// 	return children;
+// };
+
+// function ReturnChildren(props: { children: preact.ComponentChildren }) {
+// 	return props.children;
+// }
+
+// function TestUndefinedChildren() {
+// 	return (
+// 		<ReturnChildren>
+// 			<ReturnChildren>Hello</ReturnChildren>
+// 		</ReturnChildren>
+// 	);
+// }
+
 // using ref and or jsx
 class ComponentUsingRef extends Component<any, any> {
 	private array: string[];
@@ -295,3 +312,5 @@ let elementProps: ComponentProps<'button'> = {
 // Typing of style property
 const acceptsNumberAsLength = <div style={{ marginTop: 20 }} />;
 const acceptsStringAsLength = <div style={{ marginTop: '20px' }} />;
+
+const ReturnNull: FunctionalComponent = () => null;
