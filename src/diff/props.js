@@ -108,6 +108,8 @@ export function setProperty(dom, name, value, oldValue, isSvg) {
 			// - className --> class
 			name = name.replace(/xlink(H|:h)/, 'h').replace(/sName$/, 's');
 		} else if (
+			name !== 'width' &&
+			name !== 'height' &&
 			name !== 'href' &&
 			name !== 'list' &&
 			name !== 'form' &&
@@ -141,15 +143,29 @@ export function setProperty(dom, name, value, oldValue, isSvg) {
 	}
 }
 
+export let inEvent = false;
+
 /**
  * Proxy an event to hooked event handlers
  * @param {Event} e The event object from the browser
  * @private
  */
 function eventProxy(e) {
-	return this._listeners[e.type + false](options.event ? options.event(e) : e);
+	inEvent = true;
+	try {
+		return this._listeners[e.type + false](
+			options.event ? options.event(e) : e
+		);
+	} finally {
+		inEvent = false;
+	}
 }
 
 function eventProxyCapture(e) {
-	return this._listeners[e.type + true](options.event ? options.event(e) : e);
+	inEvent = true;
+	try {
+		return this._listeners[e.type + true](options.event ? options.event(e) : e);
+	} finally {
+		inEvent = false;
+	}
 }
