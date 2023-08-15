@@ -55,6 +55,15 @@ function isValidElement(element) {
 }
 
 /**
+ * Check if the passed element is a Fragment node.
+ * @param {*} element The element to check
+ * @returns {boolean}
+ */
+function isFragment(element) {
+	return isValidElement(element) && element.type === Fragment;
+}
+
+/**
  * Wrap `cloneElement` to abort if the passed element is not a valid element and apply
  * all vnode normalizations.
  * @param {import('./internal').VNode} element The vnode to clone
@@ -135,6 +144,9 @@ export function useTransition() {
 // styles/... before it attaches
 export const useInsertionEffect = useLayoutEffect;
 
+// compat to react-is
+export const isElement = isValidElement;
+
 /**
  * This is taken from https://github.com/facebook/react/blob/main/packages/use-sync-external-store/src/useSyncExternalStoreShimClient.js#L84
  * on a high level this cuts out the warnings, ... and attempts a smaller implementation
@@ -185,6 +197,7 @@ export {
 	createRef,
 	Fragment,
 	isValidElement,
+	isFragment,
 	findDOMNode,
 	Component,
 	PureComponent,
@@ -231,6 +244,8 @@ export default {
 	createRef,
 	Fragment,
 	isValidElement,
+	isElement,
+	isFragment,
 	findDOMNode,
 	Component,
 	PureComponent,
