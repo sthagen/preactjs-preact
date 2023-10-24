@@ -2118,8 +2118,13 @@ export namespace JSXInternal {
 		colSpan?: number | undefined | SignalLike<number | undefined>;
 		colspan?: number | undefined | SignalLike<number | undefined>;
 		content?: string | undefined | SignalLike<string | undefined>;
-		contentEditable?: boolean | undefined | SignalLike<boolean | undefined>;
-		contenteditable?: boolean | undefined | SignalLike<boolean | undefined>;
+		contentEditable?:
+			| Booleanish
+			| ''
+			| 'plaintext-only'
+			| undefined
+			| SignalLike<Booleanish | '' | 'plaintext-only' | undefined>;
+		contenteditable?: HTMLAttributes['contentEditable'];
 		/** @deprecated See https://developer.mozilla.org/en-US/docs/Web/HTML/Global_attributes/contextmenu */
 		contextMenu?: string | undefined | SignalLike<string | undefined>;
 		/** @deprecated See https://developer.mozilla.org/en-US/docs/Web/HTML/Global_attributes/contextmenu */
@@ -2176,6 +2181,9 @@ export namespace JSXInternal {
 					| 'send'
 					| undefined
 			  >;
+		elementTiming?: string | undefined | SignalLike<string | undefined>;
+		elementtiming?: HTMLAttributes['elementTiming'];
+		exportparts?: string | undefined | SignalLike<string | undefined>;
 		for?: string | undefined | SignalLike<string | undefined>;
 		form?: string | undefined | SignalLike<string | undefined>;
 		formAction?: string | undefined | SignalLike<string | undefined>;
