@@ -6,24 +6,25 @@ import { getDomSibling } from '../component';
 
 /**
  * Diff the children of a virtual node
- * @param {import('../internal').PreactElement} parentDom The DOM element whose
- * children are being diffed
- * @param {import('../internal').ComponentChildren[]} renderResult
- * @param {import('../internal').VNode} newParentVNode The new virtual
- * node whose children should be diff'ed against oldParentVNode
- * @param {import('../internal').VNode} oldParentVNode The old virtual
- * node whose children should be diff'ed against newParentVNode
- * @param {object} globalContext The current context object - modified by getChildContext
+ * @param {PreactElement} parentDom The DOM element whose children are being
+ * diffed
+ * @param {ComponentChildren[]} renderResult
+ * @param {VNode} newParentVNode The new virtual node whose children should be
+ * diff'ed against oldParentVNode
+ * @param {VNode} oldParentVNode The old virtual node whose children should be
+ * diff'ed against newParentVNode
+ * @param {object} globalContext The current context object - modified by
+ * getChildContext
  * @param {boolean} isSvg Whether or not this DOM node is an SVG node
- * @param {Array<import('../internal').PreactElement>} excessDomChildren
- * @param {Array<import('../internal').Component>} commitQueue List of components
- * which have callbacks to invoke in commitRoot
- * @param {import('../internal').PreactElement} oldDom The current attached DOM
- * element any new dom elements should be placed around. Likely `null` on first
- * render (except when hydrating). Can be a sibling DOM element when diffing
- * Fragments that have siblings. In most cases, it starts out as `oldChildren[0]._dom`.
+ * @param {Array<PreactElement>} excessDomChildren
+ * @param {Array<Component>} commitQueue List of components which have callbacks
+ * to invoke in commitRoot
+ * @param {PreactElement} oldDom The current attached DOM element any new dom
+ * elements should be placed around. Likely `null` on first render (except when
+ * hydrating). Can be a sibling DOM element when diffing Fragments that have
+ * siblings. In most cases, it starts out as `oldChildren[0]._dom`.
  * @param {boolean} isHydrating Whether or not we are in hydration
- * @param {Array<any>} refQueue an array of elements needed to invoke refs
+ * @param {any[]} refQueue an array of elements needed to invoke refs
  */
 export function diffChildren(
 	parentDom,
@@ -40,16 +41,19 @@ export function diffChildren(
 ) {
 	let i,
 		j,
-		/** @type {import('../internal').VNode} */
+		/** @type {VNode} */
 		oldVNode,
-		/** @type {import('../internal').VNode} */
+		/** @type {VNode} */
 		childVNode,
+		/** @type {PreactElement} */
 		newDom,
+		/** @type {PreactElement} */
 		firstChildDom,
 		skew = 0;
 
 	// This is a compression of oldParentVNode!=null && oldParentVNode != EMPTY_OBJ && oldParentVNode._children || EMPTY_ARR
 	// as EMPTY_OBJ._children should be `undefined`.
+	/** @type {VNode[]} */
 	let oldChildren = (oldParentVNode && oldParentVNode._children) || EMPTY_ARR;
 
 	let oldChildrenLength = oldChildren.length,
@@ -58,6 +62,8 @@ export function diffChildren(
 
 	newParentVNode._children = [];
 	for (i = 0; i < newChildrenLength; i++) {
+		// @ts-expect-error We are reusing the childVNode variable to hold both the
+		// pre and post normalized childVNode
 		childVNode = renderResult[i];
 
 		if (
@@ -114,6 +120,13 @@ export function diffChildren(
 			if (oldVNode && oldVNode.key == null && oldVNode._dom) {
 				if (oldVNode._dom == oldDom) {
 					oldDom = getDomSibling(oldVNode);
+
+					if (typeof newParentVNode.type == 'function') {
+						// If the parent VNode is a component/fragment, make sure its diff
+						// continues with a DOM node that is still mounted in case this loop
+						// exits here because the rest of the new children are `null`.
+						newParentVNode._nextDom = oldDom;
+					}
 				}
 
 				unmount(oldVNode, oldVNode, false);
@@ -165,75 +178,75 @@ export function diffChildren(
 			refQueue.push(j, childVNode._component || newDom, childVNode);
 		}
 
-		if (newDom != null) {
-			if (firstChildDom == null) {
-				firstChildDom = newDom;
-			}
+		if (firstChildDom == null && newDom != null) {
+			firstChildDom = newDom;
+		}
 
-			let isMounting = oldVNode === EMPTY_OBJ || oldVNode._original === null;
-			if (isMounting) {
-				if (matchingIndex == -1) {
+		let isMounting = oldVNode === EMPTY_OBJ || oldVNode._original === null;
+		if (isMounting) {
+			if (matchingIndex == -1) {
+				skew--;
+			}
+		} else if (matchingIndex !== skewedIndex) {
+			if (matchingIndex === skewedIndex + 1) {
+				skew++;
+			} else if (matchingIndex > skewedIndex) {
+				if (remainingOldChildren > newChildrenLength - skewedIndex) {
+					skew += matchingIndex - skewedIndex;
+				} else {
+					// ### Change from keyed: I think this was missing from the algo...
 					skew--;
 				}
-			} else if (matchingIndex !== skewedIndex) {
-				if (matchingIndex === skewedIndex + 1) {
-					skew++;
-				} else if (matchingIndex > skewedIndex) {
-					if (remainingOldChildren > newChildrenLength - skewedIndex) {
-						skew += matchingIndex - skewedIndex;
-					} else {
-						// ### Change from keyed: I think this was missing from the algo...
-						skew--;
-					}
-				} else if (matchingIndex < skewedIndex) {
-					if (matchingIndex == skewedIndex - 1) {
-						skew = matchingIndex - skewedIndex;
-					} else {
-						skew = 0;
-					}
+			} else if (matchingIndex < skewedIndex) {
+				if (matchingIndex == skewedIndex - 1) {
+					skew = matchingIndex - skewedIndex;
 				} else {
 					skew = 0;
 				}
+			} else {
+				skew = 0;
+			}
+		}
+
+		skewedIndex = i + skew;
+
+		if (typeof childVNode.type == 'function') {
+			if (
+				matchingIndex !== skewedIndex ||
+				oldVNode._children === childVNode._children
+			) {
+				oldDom = reorderChildren(childVNode, oldDom, parentDom);
+			} else if (childVNode._nextDom !== undefined) {
+				// Only Fragments or components that return Fragment like VNodes will
+				// have a non-undefined _nextDom. Continue the diff from the sibling
+				// of last DOM child of this child VNode
+				oldDom = childVNode._nextDom;
+			} else if (newDom) {
+				oldDom = newDom.nextSibling;
 			}
 
-			skewedIndex = i + skew;
-
-			if (typeof childVNode.type == 'function') {
-				if (
-					matchingIndex !== skewedIndex ||
-					oldVNode._children === childVNode._children
-				) {
-					oldDom = reorderChildren(childVNode, oldDom, parentDom);
-				} else if (childVNode._nextDom !== undefined) {
-					// Only Fragments or components that return Fragment like VNodes will
-					// have a non-undefined _nextDom. Continue the diff from the sibling
-					// of last DOM child of this child VNode
-					oldDom = childVNode._nextDom;
-				} else {
-					oldDom = newDom.nextSibling;
-				}
-
-				// Eagerly cleanup _nextDom. We don't need to persist the value because
-				// it is only used by `diffChildren` to determine where to resume the diff after
-				// diffing Components and Fragments. Once we store it the nextDOM local var, we
-				// can clean up the property
-				childVNode._nextDom = undefined;
-			} else if (matchingIndex !== skewedIndex || isMounting) {
+			// Eagerly cleanup _nextDom. We don't need to persist the value because
+			// it is only used by `diffChildren` to determine where to resume the diff after
+			// diffing Components and Fragments. Once we store it the nextDOM local var, we
+			// can clean up the property
+			childVNode._nextDom = undefined;
+		} else if (newDom) {
+			if (matchingIndex !== skewedIndex || isMounting) {
 				oldDom = placeChild(parentDom, newDom, oldDom);
 			} else {
 				oldDom = newDom.nextSibling;
 			}
+		}
 
-			if (typeof newParentVNode.type == 'function') {
-				// Because the newParentVNode is Fragment-like, we need to set it's
-				// _nextDom property to the nextSibling of its last child DOM node.
-				//
-				// `oldDom` contains the correct value here because if the last child
-				// is a Fragment-like, then oldDom has already been set to that child's _nextDom.
-				// If the last child is a DOM VNode, then oldDom will be set to that DOM
-				// node's nextSibling.
-				newParentVNode._nextDom = oldDom;
-			}
+		if (typeof newParentVNode.type == 'function') {
+			// Because the newParentVNode is Fragment-like, we need to set it's
+			// _nextDom property to the nextSibling of its last child DOM node.
+			//
+			// `oldDom` contains the correct value here because if the last child
+			// is a Fragment-like, then oldDom has already been set to that child's _nextDom.
+			// If the last child is a DOM VNode, then oldDom will be set to that DOM
+			// node's nextSibling.
+			newParentVNode._nextDom = oldDom;
 		}
 	}
 
@@ -245,12 +258,11 @@ export function diffChildren(
 			if (
 				typeof newParentVNode.type == 'function' &&
 				oldChildren[i]._dom != null &&
-				oldChildren[i]._dom == newParentVNode._nextDom
+				oldChildren[i]._dom == oldDom
 			) {
-				// If the newParentVNode.__nextDom points to a dom node that is about to
-				// be unmounted, then get the next sibling of that vnode and set
-				// _nextDom to it
-
+				// If oldDom points to a dom node that is about to be unmounted, then
+				// get the next sibling of that vnode and set _nextDom to it, so the
+				// parent's diff continues diffing an existing DOM node
 				newParentVNode._nextDom = oldChildren[i]._dom.nextSibling;
 			}
 
@@ -259,6 +271,12 @@ export function diffChildren(
 	}
 }
 
+/**
+ * @param {VNode} childVNode
+ * @param {PreactElement} oldDom
+ * @param {PreactElement} parentDom
+ * @returns {PreactElement}
+ */
 function reorderChildren(childVNode, oldDom, parentDom) {
 	// Note: VNodes in nested suspended trees may be missing _children.
 	let c = childVNode._children;
@@ -286,9 +304,9 @@ function reorderChildren(childVNode, oldDom, parentDom) {
 
 /**
  * Flatten and loop through the children of a virtual node
- * @param {import('../index').ComponentChildren} children The unflattened
- * children of a virtual node
- * @returns {import('../internal').VNode[]}
+ * @param {ComponentChildren} children The unflattened children of a virtual
+ * node
+ * @returns {VNode[]}
  */
 export function toChildArray(children, out) {
 	out = out || [];
@@ -303,19 +321,23 @@ export function toChildArray(children, out) {
 	return out;
 }
 
+/**
+ * @param {PreactElement} parentDom
+ * @param {PreactElement} newDom
+ * @param {PreactElement} oldDom
+ * @returns {PreactElement}
+ */
 function placeChild(parentDom, newDom, oldDom) {
-	if (oldDom == null || oldDom.parentNode !== parentDom) {
-		parentDom.insertBefore(newDom, null);
-	} else if (newDom != oldDom || newDom.parentNode == null) {
-		parentDom.insertBefore(newDom, oldDom);
+	if (newDom != oldDom) {
+		parentDom.insertBefore(newDom, oldDom || null);
 	}
 
 	return newDom.nextSibling;
 }
 
 /**
- * @param {import('../internal').VNode | string} childVNode
- * @param {import('../internal').VNode[]} oldChildren
+ * @param {VNode} childVNode
+ * @param {VNode[]} oldChildren
  * @param {number} skewedIndex
  * @param {number} remainingOldChildren
  * @returns {number}

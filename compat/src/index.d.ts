@@ -84,23 +84,23 @@ declare namespace React {
 
 	export function createPortal(
 		vnode: preact.VNode,
-		container: Element | DocumentFragment
+		container: preact.ContainerNode
 	): preact.VNode<any>;
 
 	export function render(
 		vnode: preact.VNode<any>,
-		parent: Element,
+		parent: preact.ContainerNode,
 		callback?: () => void
 	): Component | null;
 
 	export function hydrate(
 		vnode: preact.VNode<any>,
-		parent: Element,
+		parent: preact.ContainerNode,
 		callback?: () => void
 	): Component | null;
 
 	export function unmountComponentAtNode(
-		container: Element | Document | ShadowRoot | DocumentFragment
+		container: preact.ContainerNode
 	): boolean;
 
 	export function createFactory(
@@ -167,6 +167,9 @@ declare namespace React {
 		| ((instance: T | null) => void)
 		| MutableRefObject<T | null>
 		| null;
+
+	export function flushSync<R>(fn: () => R): R;
+	export function flushSync<A, R>(fn: (a: A) => R, a: A): R;
 
 	export function unstable_batchedUpdates(
 		callback: (arg?: any) => void,
