@@ -201,7 +201,7 @@ function constructNewChildrenArray(newParentVNode, renderResult, oldChildren) {
 				childVNode,
 				null,
 				null,
-				childVNode
+				null
 			);
 		} else if (isArray(childVNode)) {
 			childVNode = newParentVNode._children[i] = createVNode(
@@ -227,9 +227,11 @@ function constructNewChildrenArray(newParentVNode, renderResult, oldChildren) {
 			childVNode = newParentVNode._children[i] = childVNode;
 		}
 
+		const skewedIndex = i + skew;
+
 		// Handle unmounting null placeholders, i.e. VNode => null in unkeyed children
 		if (childVNode == null) {
-			oldVNode = oldChildren[i];
+			oldVNode = oldChildren[skewedIndex];
 			if (
 				oldVNode &&
 				oldVNode.key == null &&
@@ -250,7 +252,7 @@ function constructNewChildrenArray(newParentVNode, renderResult, oldChildren) {
 				// to unmount this VNode again seeing `_match==true`.  Further,
 				// getDomSibling doesn't know about _match and so would incorrectly
 				// assume DOM nodes in this subtree are mounted and usable.
-				oldChildren[i] = null;
+				oldChildren[skewedIndex] = null;
 				remainingOldChildren--;
 			}
 			continue;
@@ -259,7 +261,6 @@ function constructNewChildrenArray(newParentVNode, renderResult, oldChildren) {
 		childVNode._parent = newParentVNode;
 		childVNode._depth = newParentVNode._depth + 1;
 
-		const skewedIndex = i + skew;
 		const matchingIndex = findMatchingIndex(
 			childVNode,
 			oldChildren,
@@ -302,14 +303,11 @@ function constructNewChildrenArray(newParentVNode, renderResult, oldChildren) {
 				if (remainingOldChildren > newChildrenLength - skewedIndex) {
 					skew += matchingIndex - skewedIndex;
 				} else {
-					// ### Change from keyed: I think this was missing from the algo...
 					skew--;
 				}
 			} else if (matchingIndex < skewedIndex) {
 				if (matchingIndex == skewedIndex - 1) {
 					skew = matchingIndex - skewedIndex;
-				} else {
-					skew = 0;
 				}
 			} else {
 				skew = 0;
@@ -428,7 +426,10 @@ function findMatchingIndex(
 
 	if (
 		oldVNode === null ||
-		(oldVNode && key == oldVNode.key && type === oldVNode.type)
+		(oldVNode &&
+			key == oldVNode.key &&
+			type === oldVNode.type &&
+			(oldVNode._flags & MATCHED) === 0)
 	) {
 		return skewedIndex;
 	} else if (shouldSearch) {
