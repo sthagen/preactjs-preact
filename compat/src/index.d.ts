@@ -1,5 +1,7 @@
 import * as _hooks from '../../hooks';
-import * as preact from '../../src';
+// Intentionally not using a relative path to take advantage of
+// the TS version resolution mechanism
+import * as preact from 'preact';
 import { JSXInternal } from '../../src/jsx';
 import * as _Suspense from './suspense';
 import * as _SuspenseList from './suspense-list';
@@ -284,13 +286,25 @@ declare namespace React {
 		ComponentProps<T>
 	>;
 
-	export type ComponentPropsWithRef<
-		C extends ComponentType<any> | keyof JSXInternal.IntrinsicElements
-	> = C extends new (
+	export type ComponentPropsWithRef<C extends ElementType> = C extends new (
 		props: infer P
 	) => Component<any, any>
 		? PropsWithoutRef<P> & RefAttributes<InstanceType<C>>
 		: ComponentProps<C>;
+
+	export type ElementRef<
+		C extends
+			| ForwardRefExoticComponent<any>
+			| { new (props: any): Component<any, any> }
+			| ((props: any) => ReactNode)
+			| keyof JSXInternal.IntrinsicElements
+	> = 'ref' extends keyof ComponentPropsWithRef<C>
+		? NonNullable<ComponentPropsWithRef<C>['ref']> extends RefAttributes<
+				infer Instance
+			>['ref']
+			? Instance
+			: never
+		: never;
 
 	export function flushSync<R>(fn: () => R): R;
 	export function flushSync<A, R>(fn: (a: A) => R, a: A): R;
